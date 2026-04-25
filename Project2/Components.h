@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+
 struct Component {
     virtual ~Component() = default;
 };
@@ -47,4 +48,25 @@ struct CameraComponent : public Component {
     float offsetY = 0.0f;
     float zoom = 0.5f;
     bool followPlayer = true;
+};
+
+// Components.h dosyasındaki ilgili kısım
+
+// DİKKAT: ": public Component" kısmını ekledik
+struct AnimationComponent : public Component {
+    int currentFrame = 0;
+    int totalFrames = 8;
+    float frameDuration = 0.1f;
+    float elapsedTime = 0.0f;
+    int currentRow = 4;
+    bool isPlaying = false;
+};
+
+// DİKKAT: ": public Component" kısmını ekledik
+struct MovementComponent : public Component {
+    bool isMoving = false;
+    sf::Vector2f startWorldPos;
+    sf::Vector2f targetWorldPos;
+    float moveDuration = 0.2f; // MOVEMENT_DELAY yerine doğrudan değer yazabilirsin
+    float moveTimer = 0.0f;
 };

@@ -10,6 +10,8 @@
 #include <fstream>
 #include <unordered_map>
 #include "CameraSystem.h"
+#include "BuildingSystem.h"
+
 
 class Game {
 private:
@@ -18,6 +20,8 @@ private:
     CameraSystem cameraSystem;
     RenderSystem renderSystem;
     float deltaTime;
+
+    std::unique_ptr<BuildingSystem> buildingSystem;
     std::chrono::steady_clock::time_point lastFrameTime;
 
     // Textures
@@ -46,6 +50,7 @@ public:
         lastFrameTime(std::chrono::steady_clock::now()),
         cameraSystem(1920, 1080) {
 
+        buildingSystem = std::make_unique<BuildingSystem>(entityManager, worldMap, mapWidth, mapHeight);
         // Load textures with error handling
         if (!playerTexture.loadFromFile("player.png")) {
             std::cerr << "Failed to load player texture!" << std::endl;
@@ -66,7 +71,13 @@ public:
         window.setKeyPressCallback([this](sf::Keyboard::Key key) {
             handleKeyPress(key);
             });
+        window.setMouseClickCallback([this](int x, int y) {
+            sf::Vector2f worldPos = window.getWindow().mapPixelToCoords(sf::Vector2i(x, y));
+            sf::Vector2i gridPos = buildingSystem->worldToGrid(worldPos);
 
+            // Örnek: Sol tık ile 10 ID'li (Taverna) binayı inşa et
+            buildingSystem->buildStructure(gridPos.x, gridPos.y, 10);
+            });
         initializeTileTypes();
         initializeWorldMap(mapWidth, mapHeight);
 
@@ -192,6 +203,24 @@ public:
         return sf::Vector2f(worldX, worldY);
     }
 
+    sf::Vector2i worldToGrid(sf::Vector2f worldPos) {
+        // 1. GÖRSEL MERKEZ DÜZELTMESİ (En kritik satır burası)
+        // Fareyle tıkladığımız yer elmasın ortası, ama matematiksel nokta elmasın en alt ucudur.
+        // Bu yüzden tıklanan Y koordinatına elmasın yüksekliğinin yarısını (64 px) ekleyerek
+        // noktayı sanal olarak elmasın ucuna indiriyoruz.
+        float adjustedY = worldPos.y + (TILE_HEIGHT / 2.0f);
+
+        // Haritanın başlangıç offset değerlerini çıkarıyoruz
+        float x = worldPos.x - GRID_OFFSET_X;
+        float y = adjustedY - GRID_OFFSET_Y; // Artık y yerine adjustedY kullanıyoruz!
+
+        // gridToWorld matematiğinin tam tersi (Ters İzdüşüm)
+        int gridX = std::round((x / TILE_WIDTH) + (y / TILE_HEIGHT));
+        int gridY = std::round((y / TILE_HEIGHT) - (x / TILE_WIDTH));
+
+        return sf::Vector2i(gridX, gridY);
+    }
+
     void setMapTile(int x, int y, int tileType) {
         if (x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) {
             worldMap[y][x] = tileType;
@@ -270,8 +299,8 @@ public:
 
         // Set origin to bottom center
         render->sprite.setOrigin(tileWidth / 2, tileHeight);
-
-        render->layerOrder = 0;
+        
+        render->layerOrder = (tileType.name == "Wall") ? 1 : 0;
         tile->addComponent(render);
 
         // Add tile component
@@ -283,10 +312,95 @@ public:
         tileComp->name = tileType.name;
         tile->addComponent(tileComp);
     }
+    void updateAnimations() {
+        for (auto& entity : entityManager.getEntities()) {
+            auto anim = entity->getComponent<AnimationComponent>();
+            auto render = entity->getComponent<RenderComponent>();
 
+            if (anim && render && anim->isPlaying) {
+                anim->elapsedTime += deltaTime;
+
+                // frameDuration süresi dolduğunda bir sonraki kareye geç
+                if (anim->elapsedTime >= anim->frameDuration) {
+                    anim->elapsedTime = 0.0f;
+                    anim->currentFrame = (anim->currentFrame + 1) % anim->totalFrames;
+
+                    // Sprite'ın gösterdiği alanı (IntRect) güncelle
+                    const int frameWidth = playerTexture.getSize().x / 8;
+                    const int frameHeight = playerTexture.getSize().y / 8;
+
+                    render->sprite.setTextureRect(sf::IntRect(
+                        anim->currentFrame * frameWidth, // Sütun değişiyor
+                        anim->currentRow * frameHeight,  // Satır sabit kalıyor
+                        frameWidth,
+                        frameHeight
+                    ));
+                }
+            }
+            else if (anim && render && !anim->isPlaying) {
+                // Karakter duruyorsa animasyonu sıfırla (ilk kareye dön)
+                anim->currentFrame = 0;
+                anim->elapsedTime = 0.0f;
+
+                const int frameWidth = playerTexture.getSize().x / 8;
+                const int frameHeight = playerTexture.getSize().y / 8;
+
+                render->sprite.setTextureRect(sf::IntRect(
+                    0, // İlk sütun
+                    anim->currentRow * frameHeight,
+                    frameWidth,
+                    frameHeight
+                ));
+            }
+        }
+    }
+    /*
+    void handleMouseClick(int screenX, int screenY) {
+        // 1. Ekrandaki pikseli (kameranın açısını hesaba katarak) dünyaya çevir
+        sf::Vector2f worldPos = window.getWindow().mapPixelToCoords(sf::Vector2i(screenX, screenY));
+
+        // 2. Dünya koordinatını Grid (X, Y) karesine çevir
+        sf::Vector2i gridPos = worldToGrid(worldPos);
+
+        // 3. Tıklanan yer harita sınırları içinde mi?
+        if (gridPos.x >= 0 && gridPos.x < mapWidth && gridPos.y >= 0 && gridPos.y < mapHeight) {
+
+            // 4. Eğer orada zaten duvar yoksa ve oyuncunun üstüne tıklamıyorsak inşa et
+            if (getMapTile(gridPos.x, gridPos.y) != 6) {
+                buildWall(gridPos.x, gridPos.y);
+            }
+        }
+    }
+    */
+    void buildWall(int gridX, int gridY) {
+        // 1. O koordinattaki mevcut zemin Entity'sini bul ve pasifleştir
+        for (auto& entity : entityManager.getEntities()) {
+            if (entity->hasComponent<TileComponent>() && entity->hasComponent<IsometricGridComponent>()) {
+                auto gridComp = entity->getComponent<IsometricGridComponent>();
+
+                if (gridComp->gridX == gridX && gridComp->gridY == gridY) {
+                    entityManager.deactivateEntity(entity); // Eski zemini sil
+                    break; // Bulduk, döngüden çık
+                }
+            }
+        }
+
+        // 2. Mantıksal harita dizisini güncelle
+        setMapTile(gridX, gridY, 6); // 6 numara Duvar
+
+        // 3. Yeni Duvar Entity'sini yarat ve sahneye ekle
+        createTile(gridX, gridY, 6);
+
+        std::cout << "Insaat tamamlandi: Duvar dikildi -> " << gridX << ", " << gridY << std::endl;
+    }
     void createPlayer() {
         auto player = entityManager.createEntity("Player");
+        auto anim = std::make_shared<AnimationComponent>();
+        anim->currentRow = 4; // Başlangıç yönü
+        player->addComponent(anim);
 
+        auto move = std::make_shared<MovementComponent>();
+        player->addComponent(move);
         // Add isometric grid component
         auto isoGrid = std::make_shared<IsometricGridComponent>();
         isoGrid->gridX = 10;
@@ -393,83 +507,64 @@ public:
         if (!player) return;
 
         auto isoGrid = player->getComponent<IsometricGridComponent>();
-        if (!isoGrid) return;
+        auto anim = player->getComponent<AnimationComponent>();
+        auto move = player->getComponent<MovementComponent>();
+        auto transform = player->getComponent<TransformComponent>();
 
-        movementCooldown -= deltaTime;
+        if (!isoGrid || !anim || !move || !transform) return;
 
-        if (movementCooldown <= 0) {
-            int prevX = isoGrid->gridX;
-            int prevY = isoGrid->gridY;
-            int newX = prevX;
-            int newY = prevY;
+        // Eğer karakter halihazırda hareket ediyorsa, yeni girdi alma (animasyonun bitmesini bekle)
+        if (move->isMoving) return;
 
-            bool moved = false;
-            auto render = player->getComponent<RenderComponent>();
+        int newX = isoGrid->gridX;
+        int newY = isoGrid->gridY;
+        bool wantsToMove = false;
 
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
-                newY = prevY - 1; // Try to move up in grid
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
+            newY -= 1;
+            anim->currentRow = 6; // W tuşu için yön (Satır no)
+            wantsToMove = true;
+        }
+        else if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
+            newY += 1;
+            anim->currentRow = 2; // S tuşu için yön
+            wantsToMove = true;
+        }
+        else if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
+            newX -= 1;
+            anim->currentRow = 4; // A tuşu için yön
+            wantsToMove = true;
+        }
+        else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
+            newX += 1;
+            anim->currentRow = 0; // D tuşu için yön
+            wantsToMove = true;
+        }
 
-                if (render) {
-                    const int frameWidth = playerTexture.getSize().x / 8;
-                    const int frameHeight = playerTexture.getSize().y / 8;
-                    render->sprite.setTextureRect(sf::IntRect(0, 6 * frameHeight, frameWidth, frameHeight));
-                }
-                moved = true;
+        if (wantsToMove) {
+            if (isTileWalkable(newX, newY)) {
+                // Hareketi başlat
+                move->isMoving = true;
+                move->moveTimer = 0.0f;
+                move->startWorldPos = sf::Vector2f(transform->x, transform->y);
+                move->targetWorldPos = gridToWorld(newX, newY); // Hedef dünya koordinatı
+
+                // Grid pozisyonunu hemen güncelle (mantıksal olarak orada sayılması için)
+                isoGrid->gridX = newX;
+                isoGrid->gridY = newY;
+
+                anim->isPlaying = true; // Animasyonu başlat
             }
-            else if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
-                newY = prevY + 1; // Try to move down in grid
-
-                if (render) {
-                    const int frameWidth = playerTexture.getSize().x / 8;
-                    const int frameHeight = playerTexture.getSize().y / 8;
-                    render->sprite.setTextureRect(sf::IntRect(0, 2 * frameHeight, frameWidth, frameHeight));
-                }
-                moved = true;
-            }
-            else if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
-                newX = prevX - 1; // Try to move left in grid
-
-                if (render) {
-                    const int frameWidth = playerTexture.getSize().x / 8;
-                    const int frameHeight = playerTexture.getSize().y / 8;
-                    render->sprite.setTextureRect(sf::IntRect(0, 4 * frameHeight, frameWidth, frameHeight));
-                }
-                moved = true;
-            }
-            else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
-                newX = prevX + 1; // Try to move right in grid
-
-                if (render) {
-                    const int frameWidth = playerTexture.getSize().x / 8;
-                    const int frameHeight = playerTexture.getSize().y / 8;
-                    render->sprite.setTextureRect(sf::IntRect(0, 0, frameWidth, frameHeight));
-                }
-                moved = true;
-            }
-
-            if (moved) {
-                movementCooldown = MOVEMENT_DELAY;
-
-                if (isTileWalkable(newX, newY)) {
-                    isoGrid->gridX = newX;
-                    isoGrid->gridY = newY;
-               
-                    updateEntityWorldPosition(player);
-
-                    std::cout << "Player moved to grid position: "
-                        << isoGrid->gridX << ", " << isoGrid->gridY << std::endl;
-                }
-                else {
-                    std::cout << "Movement blocked - no walkable tile at "
-                        << newX << ", " << newY << std::endl;
-                }
-            }
+        }
+        else {
+            anim->isPlaying = false; // Tuşa basılmıyorsa animasyonu durdur
         }
     }
 
     void update() {
-        // Update entity manager
         entityManager.update(deltaTime);
+        updateMovement();   // Önce pozisyonları yavaşça kaydır
+        updateAnimations(); // Sonra sprite karesini güncelle
     }
 
     void updateDeltaTime() {
@@ -477,7 +572,32 @@ public:
         deltaTime = std::chrono::duration<float>(currentTime - lastFrameTime).count();
         lastFrameTime = currentTime;
     }
+    void updateMovement() {
+        auto player = entityManager.getEntityByTag("Player");
+        if (!player) return;
 
+        auto move = player->getComponent<MovementComponent>();
+        auto transform = player->getComponent<TransformComponent>();
+        auto anim = player->getComponent<AnimationComponent>();
+
+        if (move && move->isMoving) {
+            move->moveTimer += deltaTime;
+
+            // 0.0 ile 1.0 arasında bir ilerleme yüzdesi (T değeri)
+            float t = move->moveTimer / move->moveDuration;
+
+            if (t >= 1.0f) {
+                // Hedefe ulaştı
+                t = 1.0f;
+                move->isMoving = false;
+                anim->isPlaying = false; // İsteğe bağlı: tuşa basılı tutmuyorsa durdurur
+            }
+
+            // Lineer İnterpolasyon (Lerp) ile yumuşak geçiş
+            transform->x = move->startWorldPos.x + (move->targetWorldPos.x - move->startWorldPos.x) * t;
+            transform->y = move->startWorldPos.y + (move->targetWorldPos.y - move->startWorldPos.y) * t;
+        }
+    }
     void render() {
         cameraSystem.update(window.getWindow(), entityManager.getEntities(), deltaTime);
         window.clear();
