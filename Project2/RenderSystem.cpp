@@ -11,7 +11,7 @@ void RenderSystem::update(sf::RenderWindow& window, const std::vector<std::share
             auto renderA = a->getComponent<RenderComponent>();
             auto renderB = b->getComponent<RenderComponent>();
 
-            // If both objects exist and have different layers
+            
             if (renderA && renderB && renderA->layerOrder != renderB->layerOrder) {
                 // Sort by layer
                 if (renderA->layerOrder < renderB->layerOrder) {
@@ -32,7 +32,7 @@ void RenderSystem::update(sf::RenderWindow& window, const std::vector<std::share
             return false;
         });
 
-    // Render all visible entities
+   
     for (const auto& entity : sortedEntities) {
         if (!entity->isActive()) continue;
 
@@ -42,9 +42,44 @@ void RenderSystem::update(sf::RenderWindow& window, const std::vector<std::share
         if (render && render->isVisible && transform) {
             render->sprite.setPosition(transform->x, transform->y);
             render->sprite.setRotation(transform->rotation);
-            render->sprite.setScale(transform->scale, transform->scale);
+            render->sprite.setScale(transform->scaleX, transform->scaleY);
 
-            window.draw(render->sprite);
+    
+            if (transform && render) {
+
+                window.draw(render->sprite);
+
+                auto health = entity->getComponent<HealthComponent>();
+
+                if (health && health->currentHealth > 0) {
+                    auto anim = entity->getComponent<AnimationComponent>();
+
+                 
+                    float barWidth = 100.0f;
+                    float barHeight = 20.0f;
+
+                    float barX = transform->x - (barWidth / 2.0f);
+                    float barY = transform->y - 250.0f;
+
+                 
+                    sf::RectangleShape bg(sf::Vector2f(barWidth, barHeight));
+                    bg.setPosition(barX, barY);
+                    bg.setFillColor(sf::Color(40, 0, 0, 200));
+                    window.draw(bg);
+
+                    float hpPercent = health->currentHealth / health->maxHealth;
+                    if (hpPercent < 0) hpPercent = 0.0f; 
+
+                    sf::RectangleShape fill(sf::Vector2f(barWidth * hpPercent, barHeight));
+                    fill.setPosition(barX, barY);
+
+                    
+                    fill.setFillColor(sf::Color(255, 50, 50)); 
+                    
+
+                    window.draw(fill);
+                }
+            }
         }
     }
 }

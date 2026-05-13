@@ -1,11 +1,22 @@
 ﻿  main.cpp
-C:\Users\osman\OneDrive\Masaüstü\Project2\Project2\main.cpp(217,19): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
-C:\Users\osman\OneDrive\Masaüstü\Project2\Project2\main.cpp(218,19): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
-C:\Users\osman\OneDrive\Masaüstü\Project2\Project2\main.cpp(426,50): warning C4244: 'argument': conversion from 'const int' to 'float', possible loss of data
-C:\Users\osman\OneDrive\Masaüstü\Project2\Project2\main.cpp(426,45): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\osman\OneDrive\Masaüstü\Project2\Project2\main.cpp(111,38): warning C4101: 'e': unreferenced local variable
+C:\Users\osman\OneDrive\Masaüstü\Project2\Project2\main.cpp(138,112): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\osman\OneDrive\Masaüstü\Project2\Project2\main.cpp(139,112): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\osman\OneDrive\Masaüstü\Project2\Project2\main.cpp(140,108): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\osman\OneDrive\Masaüstü\Project2\Project2\main.cpp(141,112): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\osman\OneDrive\Masaüstü\Project2\Project2\main.cpp(142,111): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\osman\OneDrive\Masaüstü\Project2\Project2\main.cpp(143,111): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\osman\OneDrive\Masaüstü\Project2\Project2\main.cpp(144,107): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\osman\OneDrive\Masaüstü\Project2\Project2\main.cpp(154,100): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+C:\Users\osman\OneDrive\Masaüstü\Project2\Project2\main.cpp(154,93): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+C:\Users\osman\OneDrive\Masaüstü\Project2\Project2\main.cpp(154,86): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+C:\Users\osman\OneDrive\Masaüstü\Project2\Project2\main.cpp(154,79): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+C:\Users\osman\OneDrive\Masaüstü\Project2\Project2\main.cpp(253,63): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\osman\OneDrive\Masaüstü\Project2\Project2\main.cpp(404,63): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+C:\Users\osman\OneDrive\Masaüstü\Project2\Project2\main.cpp(575,45): warning C4018: '<': signed/unsigned mismatch
   Generating code
-  5 of 1398 functions ( 0.4%) were compiled, the rest were copied from previous compilation.
+  1 of 1994 functions (<0.1%) were compiled, the rest were copied from previous compilation.
     0 functions were new in current compilation
-    0 functions had inline decision re-evaluated but remain unchanged
+    1 functions had inline decision re-evaluated but remain unchanged
   Finished generating code
   Project2.vcxproj -> C:\Users\osman\OneDrive\Masaüstü\Project2\Release\Project2.exe
